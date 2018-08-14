@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# v => 0.4
-# by walmins
+# -*- coding: utf-8 -*- 
+# based on walmins' version 0.4 contributions
+# version 0.68 by dimos.kokkonos & antonis.kokkonos
 # python3
-# last modification: 20180407
+# last modification: 2018-08-14
 # source https://forum.hiveos.farm/discussion/192/hive-api
 import requests
 import json
@@ -17,9 +17,13 @@ import datetime
 import time
 from VARS import *
 import logging
+import operator
+from termcolor import colored
+import termcolor
 
-greaterProfit = 20
-debug = True
+greaterProfit = GREATER_PROFIT
+debug = DEBUG
+sleepTime = SLEEP_TIME
 
 def minerHiveOS(params):
 	params["public_key"] = PUBLIC_KEY
@@ -51,7 +55,7 @@ def minerHiveOS(params):
 
 # Monitor stats for all the rigs
 def getCurrentStats():
-	logging.info("*** getCurrentStats ***")
+	logging.info(colored("*** Get-Current-Stats ***", 'cyan'))
 	currentStats = {}
 	params = {
 		'method': 'getCurrentStats'
@@ -59,7 +63,7 @@ def getCurrentStats():
 	currentStats['rigID'] = str(RIG_ID)
 	stats = minerHiveOS(params)
 	if stats:
-		#currentStats['algo'] = list(stats['result']['summary']['algo'].keys())[0]
+		currentStats['algo'] = list(stats['result']['summary']['algo'].keys())[0]
 		currentStats['miner'] = stats['result']['rigs'][currentStats['rigID']]['miner']
 		currentStats['walletID'] = stats['result']['rigs'][currentStats['rigID']]['id_wal']
 		currentStats['walletName'] =  stats['result']['rigs'][currentStats['rigID']]['wallet_name']
@@ -92,7 +96,7 @@ def multiRocket(rig_ids_str, miner, id_wal):
 	return result
 
 def getProfitCoin():
-	logging.info("*** getProfitCoin ***")
+	logging.info(colored("*** Get-Most-Profitable-Coin ***", 'cyan'))
 	profitability = {}
 	url_opener = urllib.request.build_opener()
 	url_opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
@@ -103,32 +107,49 @@ def getProfitCoin():
 	except:
 	    json_obj = {'coins': {}}
 	    print ("error")
+	flag=0
 	for coin_set in json_obj['coins'].items():
 		coin = coin_set[1]
-		if coin['algorithm'] in profitability:	
-			if profitability.get(coin['algorithm']) < coin['profitability']:
-				profitability[coin['algorithm']] = coin['profitability']
+
+		if coin['algorithm'] in profitability:
+			if profitability.get(coin['tag']) < coin['profitability']:
+				profitability[coin['tag']] = coin['profitability']
 		else:
-			profitability[coin['algorithm']] = coin['profitability']
+			profitability[coin['tag']] = coin['profitability']
+
+		if coin['tag'] ==  "NICEHASH":
+			if flag==0:
+				NicehashProfit = coin['profitability']
+				NicehashAlgo = coin['algorithm']
+				flag=1
+				str = NicehashAlgo +' '
+				coin['tag'] = str
+			profitability[coin['tag']] = NicehashProfit
+
+		if coin['tag'] in wallets.keys():
+			tag=0
+		else:
+			del profitability [coin['tag']]
+
 	if debug == True:
 		print (profitability)
 	return profitability
 
 if __name__ == '__main__':
 	logging.basicConfig(level=logging.INFO, format='%(asctime)s : %(levelname)s : %(message)s')
-	logging.info("Start autoswitchHiveOS")
+	logging.info(colored("Start autoswitch-HiveOS", 'white', attrs=['bold']))
 	while True:
 		try:
 			CurrentStats = getCurrentStats()
-			logging.info("=== My Stats === ")
-			logging.info("RIG ID: %s", CurrentStats['rigID'])
-			logging.info("Wallet ID: %s", CurrentStats['walletID'])
-			logging.info("Miner: %s", CurrentStats['miner'])
-			#logging.info("Algo: %s", CurrentStats['algo'])		
+			logging.info(colored("======== My-Stats =======", 'white', attrs=['bold']))
+			logging.info(colored("RIG-ID      : %s", 'white'), CurrentStats['rigID'])
+			logging.info(colored("Wallet-ID   : %s", 'white'), CurrentStats['walletID'])
+			logging.info(colored("Wallet-Name : %s", 'yellow'), CurrentStats['walletName'])
+			logging.info(colored("Miner       : %s", 'white'), CurrentStats['miner'])
+			logging.info(colored("Algo        : %s", 'white'), CurrentStats['algo'])
 			ProfitCoin = getProfitCoin()
 			for coins in wallets.items():
 				if CurrentStats['walletID'] == coins[1]['id_wal']:
-					print (coins[0])
 					CurrentStats['wtmAlgo'] = coins[0]
 					if CurrentStats['wtmAlgo'] in ProfitCoin.keys():
 						CurrentStats['profit'] = ProfitCoin[CurrentStats['wtmAlgo']]
@@ -138,13 +159,14 @@ if __name__ == '__main__':
 				if debug == True:
 					print (CurrentStats)
 				currentProfit = (ProfitCoin[list(ProfitCoin.keys())[0]])
-				logging.info("Curent WTM Profit: %s (%s)", currentProfit, list(ProfitCoin.keys())[0])
-				logging.info("My Profit: %s", CurrentStats['profit'])
+				logging.info(colored("Whattomine.com-Profit : %s%% (%s)", 'white'), currentProfit, list(ProfitCoin.keys())[0])
+				logging.info(colored("Current-Coin-Profit   : %s%% \n", 'white'), CurrentStats['profit'])
 				if currentProfit > (CurrentStats['profit'] + greaterProfit) and CurrentStats['wtmAlgo'] != list(ProfitCoin.keys())[0]:
-					logging.info("Set to RIG: %s -> Algo: %s : Wallet ID: %s : Miner: %s",  CurrentStats['rigID'], wallets[list(ProfitCoin.keys())[0]]['algo'], wallets[list(ProfitCoin.keys())[0]]['id_wal'], wallets[list(ProfitCoin.keys())[0]]['miner'])
+					logging.info(colored("Set-to-RIG: %s -> Wallet-ID: %s, Wallet-Name: %s,  Miner: %s, Algo: %s \n", 'green'),  CurrentStats['rigID'],  wallets[list(ProfitCoin.keys())[0]]['id_wal'], wallets[list(ProfitCoin.keys())[0]]['wallet_name'], wallets[list(ProfitCoin.keys())[0]]['miner'], 
+wallets[list(ProfitCoin.keys())[0]]['algo'])
 					if wallets[list(ProfitCoin.keys())[0]]['id_wal']:
-						multiRocket(CurrentStats['rigID'], wallets[list(ProfitCoin.keys())[0]]['miner'], wallets[list(ProfitCoin.keys())[0]]['id_wal'])
+						multiRocket(CurrentStats['rigID'], wallets[list(ProfitCoin.keys())[0]]['miner'], wallets[list(ProfitCoin.keys())[0]]['id_wal'],)
 
 		except KeyboardInterrupt:
 			print ("Keyboard Interrupted! bye!")
-		time.sleep(30)
+		time.sleep(sleepTime)
