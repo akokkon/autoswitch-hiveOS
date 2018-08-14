@@ -26,10 +26,12 @@ Add your personal data in VARS.py (api keys, rig_id, wallet_id)
 ### copy as-hive folder through ssh to hiveos (its not necessary that because it can run from any computer has installed python 3.6.4)
 
 sudo scp -r ~/Desktop/as-hive user@192.xxx.xxx.xxx:/
+
 chmod 770 -R as-hive
 
 ### to autostart as-hive on boot 
 cd /etc/xdg/autostart
+
 nano as-hive.desktop
 
 [Desktop Entry]
